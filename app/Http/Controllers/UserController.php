@@ -11,7 +11,7 @@ class UserController extends Controller
 {
     public function index(Request $request)
     {
-        $query = User::latest();
+        $query = User::with('profile')->latest();
 
         if ($request->has('search')) {
             $query->where('name', 'like', '%' . $request->search . '%')
@@ -35,16 +35,39 @@ class UserController extends Controller
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:6',
             'role' => 'required|in:admin,user',
+            'foto' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'bio' => 'nullable|string',
         ]);
 
-        User::create([
+        // Create user
+        $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'role' => $request->role,
+            'status' => 'active', // Default status
+        ]);
+
+        // Handle photo upload & create profile
+        $fotoPath = null;
+        if ($request->hasFile('foto')) {
+            $fotoPath = $request->file('foto')->store('profiles', 'public');
+        }
+
+        // Create profile record
+        $user->profile()->create([
+            'foto' => $fotoPath,
+            'bio' => $request->bio,
         ]);
 
         return redirect()->route('users.index')->with('success', 'User berhasil ditambahkan.');
+    }
+
+    public function show(User $user)
+    {
+        // Eager load profile relationship
+        $user->load('profile');
+        return view('users.show', compact('user'));
     }
 
     public function edit(User $user)

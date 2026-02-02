@@ -12,7 +12,8 @@ class InfoController extends Controller
         $query = Info::latest();
 
         if ($request->has('search')) {
-            $query->where('text', 'like', '%' . $request->search . '%');
+            $query->where('text', 'like', '%' . $request->search . '%')
+                  ->orWhere('judul', 'like', '%' . $request->search . '%');
         }
 
         $infos = $query->get();
@@ -22,10 +23,14 @@ class InfoController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'text' => 'required|string|max:255',
+            'judul' => 'required|string|max:255',
+            'tipe' => 'required|in:info,pengumuman,berita',
+            'text' => 'required|string',
         ]);
 
         Info::create([
+            'judul' => $request->judul,
+            'tipe' => $request->tipe,
             'text' => $request->text,
         ]);
 
@@ -35,10 +40,14 @@ class InfoController extends Controller
     public function update(Request $request, Info $info)
     {
         $request->validate([
-            'text' => 'required|string|max:255',
+            'judul' => 'required|string|max:255',
+            'tipe' => 'required|in:info,pengumuman,berita',
+            'text' => 'required|string',
         ]);
 
         $info->update([
+            'judul' => $request->judul,
+            'tipe' => $request->tipe,
             'text' => $request->text,
         ]);
 

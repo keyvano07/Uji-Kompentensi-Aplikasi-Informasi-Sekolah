@@ -19,7 +19,7 @@ Route::middleware('auth')->group(function () {
     
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-    Route::get('/users', [\App\Http\Controllers\UserController::class, 'index'])->name('users.index'); // Placeholder until UserController created
+    Route::get('/users', [\App\Http\Controllers\UserController::class, 'index'])->name('users.index');
     
     // Profile
     Route::get('/profile', [\App\Http\Controllers\ProfileController::class, 'edit'])->name('profile.edit');
@@ -29,7 +29,7 @@ Route::middleware('auth')->group(function () {
 
     // Admin Only
     Route::middleware('role:admin')->group(function () {
-        // User CRUD
+        // User CRUD - SPECIFIC ROUTES FIRST!
         Route::get('/users/create', [\App\Http\Controllers\UserController::class, 'create'])->name('users.create');
         Route::post('/users', [\App\Http\Controllers\UserController::class, 'store'])->name('users.store');
         Route::get('/users/{user}/edit', [\App\Http\Controllers\UserController::class, 'edit'])->name('users.edit');
@@ -41,4 +41,7 @@ Route::middleware('auth')->group(function () {
         Route::put('/infos/{info}', [\App\Http\Controllers\InfoController::class, 'update'])->name('infos.update');
         Route::delete('/infos/{info}', [\App\Http\Controllers\InfoController::class, 'destroy'])->name('infos.destroy');
     });
+
+    // User Profile View - AFTER specific routes
+    Route::get('/users/{user}', [\App\Http\Controllers\UserController::class, 'show'])->name('users.show');
 });

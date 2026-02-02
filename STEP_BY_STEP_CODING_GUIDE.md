@@ -125,7 +125,7 @@ php artisan make:migration create_infos_table
 ```
 
 ### 7. File: `database/migrations/xxxx_create_users_table.php`
-Edit migration users yang sudah ada, tambahkan kolom `role` setelah `email`:
+Edit migration users yang sudah ada, tambahkan kolom `role` dan `status` setelah `email`:
 ```php
 public function up(): void
 {
@@ -134,6 +134,7 @@ public function up(): void
         $table->string('name');
         $table->string('email')->unique();
         $table->enum('role', ['admin', 'user'])->default('user'); // TAMBAHKAN INI
+        $table->enum('status', ['active', 'inactive'])->default('active'); // TAMBAHKAN INI
         $table->timestamp('email_verified_at')->nullable();
         $table->string('password');
         $table->rememberToken();
@@ -144,6 +145,26 @@ public function up(): void
 }
 ```
 
+### 7b. Terminal: Buat Migration & Model Profiles
+```bash
+php artisan make:model Profile -m
+```
+
+### 7c. File: `database/migrations/xxxx_create_profiles_table.php`
+Ganti **SELURUH ISI** method `up()` dengan:
+```php
+public function up(): void
+{
+    Schema::create('profiles', function (Blueprint $table) {
+        $table->id();
+        $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
+        $table->string('foto')->nullable();
+        $table->text('bio')->nullable();
+        $table->timestamp('updated_at')->nullable();
+    });
+}
+```
+
 ### 8. File: `database/migrations/xxxx_create_infos_table.php`
 Ganti **SELURUH ISI** method `up()` dengan:
 ```php
@@ -151,6 +172,8 @@ public function up(): void
 {
     Schema::create('infos', function (Blueprint $table) {
         $table->id();
+        $table->string('judul');
+        $table->enum('tipe', ['info', 'pengumuman', 'berita'])->default('info');
         $table->text('text');
         $table->timestamps();
     });
@@ -158,14 +181,47 @@ public function up(): void
 ```
 
 ### 9. File: `app/Models/User.php`
-Update bagian `$fillable` untuk include `role`:
+Update bagian `$fillable` untuk include `role` dan `status`:
 ```php
 protected $fillable = [
     'name',
     'email',
     'password',
-    'role', // TAMBAHKAN INI
+    'role',    // TAMBAHKAN INI
+    'status',  // TAMBAHKAN INI
 ];
+
+// Tambahkan relationship dengan Profile (di bawah casts atau get attributes)
+public function profile()
+{
+    return $this->hasOne(Profile::class);
+}
+```
+
+### 9b. File: `app/Models/Profile.php`
+Update fillable dan relationship:
+```php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+
+class Profile extends Model
+{
+    use HasFactory;
+    
+    protected $fillable = ['user_id', 'foto', 'bio'];
+    
+    public $timestamps = false;
+    const UPDATED_AT = 'updated_at';
+    
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+}
 ```
 
 ### 10. Terminal: Buat Model Info
@@ -184,7 +240,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Info extends Model
 {
-    protected $fillable = ['text'];
+    protected $fillable = ['judul', 'tipe', 'text'];
 }
 ```
 

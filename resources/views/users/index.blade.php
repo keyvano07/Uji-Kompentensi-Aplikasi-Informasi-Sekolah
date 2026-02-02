@@ -55,10 +55,18 @@
                         <td class="px-6 py-4 text-xs font-bold text-gray-400">#{{ $user->id }}</td>
                         <td class="px-6 py-4">
                             <div class="flex items-center">
-                                <div class="flex-shrink-0 h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-xs uppercase mr-3">
-                                    {{ substr($user->name, 0, 1) }}
-                                </div>
-                                <div class="text-sm font-medium text-gray-900">{{ $user->name }}</div>
+                                @if($user->profile && $user->profile->foto)
+                                    <img src="{{ asset('storage/' . $user->profile->foto) }}" 
+                                         alt="{{ $user->name }}" 
+                                         class="flex-shrink-0 h-8 w-8 rounded-full object-cover mr-3">
+                                @else
+                                    <div class="flex-shrink-0 h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-xs uppercase mr-3">
+                                        {{ substr($user->name, 0, 1) }}
+                                    </div>
+                                @endif
+                                <a href="{{ route('users.show', $user->id) }}" class="text-sm font-medium text-gray-900 hover:text-green-800 transition-colors">
+                                    {{ $user->name }}
+                                </a>
                             </div>
                         </td>
                         <td class="px-6 py-4 text-center">

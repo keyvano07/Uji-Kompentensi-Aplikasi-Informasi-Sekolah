@@ -89,21 +89,37 @@ DB_PASSWORD=                  <-- Kosongkan jika default
 ### 3. Siapkan Migrasi (Tabel)
 
 **Tabel Users (Modifikasi):**
-Kita butuh kolom `role` (Admin/User).
+Kita butuh kolom `role` (Admin/User) dan `status` (Active/Inactive).
 Buka file di `database/migrations/xxxx_create_users_table.php`.
 
 ```php
 // Tambahkan baris ini di dalam Schema::create
 $table->enum('role', ['admin', 'user'])->default('user');
+$table->enum('status', ['active', 'inactive'])->default('active');
+```
+
+**Tabel Profiles (Baru):**
+Untuk foto profil dan bio user.
+```bash
+php artisan make:model Profile -m
+```
+Buka file migration `xxxx_create_profiles_table.php`:
+```php
+$table->foreignId('user_id')->constrained('users')->onDelete('cascade');
+$table->string('foto')->nullable();
+$table->text('bio')->nullable();
+$table->timestamp('updated_at')->nullable();
 ```
 
 **Tabel Infos (Baru):**
-Untuk teks berjalan.
+Untuk teks berjalan dengan judul dan tipe.
 ```bash
 php artisan make:model Info -m
 ```
 Buka file migration `xxxx_create_infos_table.php`:
 ```php
+$table->string('judul');
+$table->enum('tipe', ['info', 'pengumuman', 'berita'])->default('info');
 $table->text('text'); // Kolom untuk isi pengumuman
 ```
 
@@ -112,6 +128,12 @@ $table->text('text'); // Kolom untuk isi pengumuman
 php artisan migrate
 ```
 *Ini akan membuat tabel-tabel di database Anda.*
+
+### 5. Setup Storage untuk Upload Foto
+```bash
+php artisan storage:link
+```
+*Perintah ini membuat symbolic link dari `storage/app/public` ke `public/storage`, agar file yang diupload bisa diakses dari browser.*
 
 ### 🛑 Kemungkinan Error (Database)
 -   **Error:** `SQLSTATE[HY000] [1049] Unknown database 'ujikom_bondowoso'`
@@ -132,13 +154,31 @@ protected $fillable = [
     'name',
     'email',
     'password',
-    'role', // <-- Jangan lupa tambahkan ini
+    'role',
+    'status', // <-- Tambahkan ini
 ];
+
+// Tambahkan relationship
+public function profile() {
+    return $this->hasOne(Profile::class);
+}
+```
+
+**File:** `app/Models/Profile.php`
+```php
+protected $fillable = ['user_id', 'foto', 'bio'];
+
+public $timestamps = false;
+const UPDATED_AT = 'updated_at';
+
+public function user() {
+    return $this->belongsTo(User::class);
+}
 ```
 
 **File:** `app/Models/Info.php`
 ```php
-protected $fillable = ['text'];
+protected $fillable = ['judul', 'tipe', 'text'];
 ```
 
 ### 2. Seeder (Data Dummy)
@@ -210,6 +250,34 @@ Anda **WAJIB** menjalankan perintah ini di terminal terpisah selama coding (jang
 npm run dev
 ```
 
+### 4. Blade Components (Opsional - untuk Simplifikasi)
+Untuk menyederhanakan class Tailwind yang panjang, buat komponen reusable:
+
+**File:** `resources/views/components/button.blade.php`
+```blade
+@props(['variant' => 'primary'])
+
+@php
+$classes = match($variant) {
+    'primary' => 'bg-green-900 hover:bg-green-800 text-white',
+    'secondary' => 'bg-gray-300 hover:bg-gray-400 text-gray-800',
+    'danger' => 'bg-red-600 hover:bg-red-700 text-white',
+    default => 'bg-green-900 hover:bg-green-800 text-white',
+};
+@endphp
+
+<button {{ $attributes->merge(['class' => "px-6 py-2 text-sm font-medium rounded-lg transition-colors $classes"]) }}>
+    {{ $slot }}
+</button>
+```
+
+**Cara pakai:**
+```blade
+<x-button>Simpan</x-button>
+<x-button variant="secondary">Batal</x-button>
+<x-button variant="danger">Hapus</x-button>
+```
+
 ### 🛑 Kemungkinan Error (Frontend)
 -   **Error:** Tampilan web hancur/polos, tidak ada style.
     *   **Penyebab:** `npm run dev` tidak dijalankan.
@@ -270,9 +338,82 @@ public function index() {
 
 ---
 
-## BAB 8: Fitur Manajemen Data (CRUD + Ajax)
+## BAB 8: Fitur Manajemen Data (CRUD + Ajax + File Upload)
 
-### Studi Kasus: Manajemen User (Ubah Role Instan)
+### Studi Kasus 1: Upload Foto Profil
+
+**Controller (`UserController`):**
+```php
+public function store(Request $request) {
+    $request->validate([
+        'name' => 'required',
+        'email' => 'required|email|unique:users',
+        'password' => 'required|min:6',
+        'role' => 'required|in:admin,user',
+        'foto' => 'nullable|image|max:2048', // Max 2MB
+    ]);
+
+    $user = User::create([
+        'name' => $request->name,
+        'email' => $request->email,
+        'password' => bcrypt($request->password),
+        'role' => $request->role,
+        'status' => 'active',
+    ]);
+
+    // Handle foto upload
+    if ($request->hasFile('foto')) {
+        $fotoPath = $request->file('foto')->store('profiles', 'public');
+        
+        $user->profile()->create([
+            'foto' => $fotoPath,
+            'bio' => $request->bio,
+        ]);
+    }
+
+    return back()->with('success', 'User berhasil ditambahkan.');
+}
+```
+
+**View - Form Upload:**
+```blade
+<form action="{{ route('users.store') }}" method="POST" enctype="multipart/form-data">
+    @csrf
+    <input type="file" name="foto" accept="image/*">
+    <textarea name="bio" placeholder="Bio..."></textarea>
+    <button type="submit">Simpan</button>
+</form>
+```
+
+**Tips Penting:**
+- Jangan lupa `enctype="multipart/form-data"` di form tag!
+- Gunakan `hasFile()` untuk cek apakah file ada yang diupload
+- `store('profiles', 'public')` = simpan di `storage/app/public/profiles`
+- Path hasil upload bisa diakses via `/storage/profiles/namafile.jpg`
+
+### Studi Kasus 2: Prevent Double Submit
+
+**Masalah:** User klik tombol "Simpan" beberapa kali, data jadi double.
+
+**Solusi JavaScript:**
+```javascript
+function handleFormSubmit(form) {
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn.disabled) {
+        return false; // Already submitting
+    }
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Menyimpan...';
+    return true;
+}
+```
+
+**Di Form:**
+```blade
+<form onsubmit="return handleFormSubmit(this)">
+```
+
+### Studi Kasus 3: Manajemen User (Ubah Role Instan)
 
 1.  **View (`index.blade.php`)**:
     Di tabel, kita pasang dropdown.
